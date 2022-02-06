@@ -1,8 +1,8 @@
 const mongoose = require('mongoose')
-mongoose.connect('mongodb://localhost:27017/employee')
+mongoose.connect('mongodb://localhost:27017/employee',{useMongoClient: true})
 const con = mongoose.connection
 
-const schema = new mongoose.Schema({
+const userSchema = new mongoose.Schema({
     name : String,
     phone : String,
     email : String,
@@ -10,7 +10,9 @@ const schema = new mongoose.Schema({
     password : String
 })
 
-const Model = mongoose.model('users', schema)
+const userCollection = mongoose.model('users', userSchema)
+
+con.on('open',function() {})
 
 con.on('connected',function() {
     console.log("DB connected....")
@@ -22,23 +24,54 @@ con.on('disconnected',function() {
 
 con.on('error', console.error.bind(console, 'connection error : '))
 
-module.exports.insertData = function insertData(name, phone, email, job_title, password) {
-    const doc = new Model({
+//Create New User
+module.exports.insertData = function insertData(name, phone, userEmail, job_title, password, response) {
+
+    const doc = new userCollection({
         name : name,
         phone : phone,
-        email : email,
+        email : userEmail,
         job_title : job_title,
         password : password
     })
 
-    con.on('open',function() {
-        doc.save(function(err, res) {
-            if(err) {
-                throw err
-            }
-            
-            con.close()
-            return res
-        })
+    Model.find({email : userEmail},function(err, data) { 
+        if(err) {
+            throw err
+        }
+
+        if(data.length == 0){
+
+            doc.save(function(err, res) {
+                if(err) {
+                    throw err
+                }
+                response.status(200).send(res)
+            })
+        }
+        else {
+            response.status(200).send({message: "User already exists."})
+        }        
     })
+}
+
+//Get All Users
+module.exports.getUsers = function(response) {
+
+    Model.find({}, function(err, users) {
+        if(err) {
+            throw err
+        }
+        response.status(200).send({data: users})
+    })
+}
+
+//delete users 
+module.exports.deleteUsers = function(user_id, res) {
+    userCollection.deleteOne({_id: user_id }, function(err) {
+        if(err) 
+            res.status(404).send({message:"User not found."})
+        else
+            res.status(200).send({message: "User Deleted Successfullt."})
+    });
 }

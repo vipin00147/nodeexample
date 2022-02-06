@@ -31,13 +31,19 @@ app.post("/login", mw.validateLoginCredential(), (req, res) => {
         }
     });
 
-
     if(!isValidUser) {
         res.send(404, {message : "User not found."})
     }
 })
 
-app.post("/add_user",dbStatus = mw.validateAddUserCredential(), (req, res) => {
-    database.insertData(req.body.name,req.body.phone, req.body.email, req.body.job_title, req.body.password)
-    res.send(200, dbStatus)
+app.post("/add_user", mw.validateAddUserCredential(), (req, res) => {
+    database.insertData(req.body.name,req.body.phone, req.body.email, req.body.job_title, req.body.password, res)
+})
+
+app.get('/get_users', (req, res) => {
+    database.getUsers(res)
+})
+
+app.post('/delete_user', (req, res) => {
+   database.deleteUsers(req.body.user_id, res)
 })

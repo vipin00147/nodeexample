@@ -1,19 +1,20 @@
 module.exports.validateLoginCredential = function() {
     return function(req, res, next) {
+        console.log(req.body)
         if(req.body.email === '' && req.body.password === '') {
-            res.send(401, {message : "Email and password required."})
+            res.status(400).send({message : "Email and password required."})
         }
         else if(req.body.email === '') {
-            res.send(401, {message : "Email field can't be empty."})
+            res.status(400).send({message : "Email field can't be empty."})
         }
         else if(!isvalidEmail(req.body.email)) {
-            res.send(401, {message : "Invalid email."} )
+            res.status(400).send({message : "Invalid email."} )
         }
         else if(req.body.password === '') {
-            res.send(401, {message : "password field can't be empty."} )
+            res.status(400).send({message : "password field can't be empty."} )
         }
         else if(req.body.password.length < 8) {
-            res.send(401, {message : "Password length should be more then 8."} )
+            res.status(400).send({message : "Password length should be more then 8."} )
         }
         else {
             next()
@@ -48,26 +49,27 @@ function isvalidEmail(email) {
 
 module.exports.validateAddUserCredential = function() {
     return function(req, res, next) {
+        
         if(req.body.name === '') {
-            res.send(401, 'Name field cant be empty.')
+            res.status(400).send({message : 'Name field cant be empty.'})
         }
         else if(req.body.phone === '') {
-            res.send(401, 'Phone field cant be empty.')
+            res.status(400).send({message : 'Phone field cant be empty.'})
         }
         else if(req.body.email === '') {
-            res.send(401, 'Email field cant be empty.')
+            res.status(400).send({message : 'Email field cant be empty.'})
         }
         else if(req.body.job_title === '') {
-            res.send(401, 'Job title field cant be empty.')
+            res.status(400).send({message : 'Job title field cant be empty.'})
         }
         else if(req.body.password === '') {
-            res.send(401, 'Password field cant be empty.')
+            res.status(400).send({message : 'Password field cant be empty.'})
         }
         else if(!isvalidEmail(req.body.email)) {
-            res.send(401, {message : "Invalid email."} )
+            res.status(400).send({message : "Invalid email."} )
         }
         else if(req.body.password.length < 8) {
-            res.send(401, {message : "Password length should be more then 8."} )
+            res.status(400).send({message : "Password length should be more then 8."} )
         }
         else {
             next()
