@@ -9,8 +9,12 @@
   "author": "vipin",
   "license": "MIT",
   "dependencies": {
+    "cors": "^2.8.5",
     "express": "^4.17.2",
+    "express-formidable": "^1.2.0",
+    "formidable": "^2.0.1",
     "mongoose": "^4.13.21",
+    "multer": "^1.4.4",
     "nodemailer": "^6.7.2"
   },
   "devDependencies": {

@@ -1,6 +1,6 @@
 module.exports.validateLoginCredential = function() {
     return function(req, res, next) {
-        console.log(req.body)
+
         if(req.body.email === '' && req.body.password === '') {
             res.status(400).send({message : "Email and password required."})
         }
@@ -49,7 +49,9 @@ function isvalidEmail(email) {
 
 module.exports.validateAddUserCredential = function() {
     return function(req, res, next) {
-        
+
+        console.log(req.body)
+    
         if(req.body.name === '') {
             res.status(400).send({message : 'Name field cant be empty.'})
         }
@@ -70,6 +72,29 @@ module.exports.validateAddUserCredential = function() {
         }
         else if(req.body.password.length < 8) {
             res.status(400).send({message : "Password length should be more then 8."} )
+        }
+        else {
+            next()
+        }
+    }
+}
+
+module.exports.checkDataForUpdation = function() {
+    return function(req, res, next) {
+        if(req.body._id === '') {
+            res.status(400).send({message : 'id field cant be empty.'})
+        }
+        else if(req.body.name === '') {
+            res.status(400).send({message : 'Name field cant be empty.'})
+        }
+        else if(req.body.phone === '') {
+            res.status(400).send({message : 'Phone field cant be empty.'})
+        }
+        else if(req.body.email === '') {
+            res.status(400).send({message : 'Email field cant be empty.'})
+        }
+        else if(req.body.job_title === '') {
+            res.status(400).send({message : 'Job title field cant be empty.'})
         }
         else {
             next()
