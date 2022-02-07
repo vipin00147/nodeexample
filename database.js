@@ -73,7 +73,7 @@ module.exports.insertData = function insertData(req, response) {
         email : req.body.email,
         job_title : req.body.job_title,
         password : req.body.password,
-        profile_picture : "path"
+        profile_picture : req.files.profile_picture.name
     })
 
     userCollection.find({email : req.body.email},function(err, data) { 

@@ -4,12 +4,14 @@ const mw = require("./middleware")
 const database = require('./database')
 const req = require('express/lib/request')
 const multer  = require('multer')
+const formData = require('express-form-data');
 const path = require('path')
 const app = express()
 const login_success = {message : "Login success."}
 
 app.use(bodyParser.urlencoded({ extended: true }))
 app.use(bodyParser.json())
+app.use(formData.parse())
 
 app.listen(3000, () => {
     console.log("Server listening at http://localhost:3000/")
@@ -52,5 +54,4 @@ app.patch('/update_user', mw.checkDataForUpdation(), (req, res) => {
 
 app.post('/add_image', imageUpload.single('uploaded_file'), (req, res) => {
     res.send(req.file)
-    Request
 })

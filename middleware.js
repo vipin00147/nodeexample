@@ -49,8 +49,6 @@ function isvalidEmail(email) {
 
 module.exports.validateAddUserCredential = function() {
     return function(req, res, next) {
-
-        console.log(req.body)
     
         if(req.body.name === '') {
             res.status(400).send({message : 'Name field cant be empty.'})
