@@ -1,5 +1,6 @@
 const req = require('express/lib/request')
 const res = require('express/lib/response')
+const bcrypt = require("bcrypt")
 const multer  = require('multer')
 const path = require('path')
 var util = require('util');
@@ -8,29 +9,13 @@ const mongoose = require('mongoose')
 mongoose.connect('mongodb://localhost:27017/employee',{useMongoClient: true})
 const con = mongoose.connection
 
-//profile image storag epath
-const imageStorage = multer.diskStorage({
-    // Destination to store image     
-    destination: './profile_pictures', 
-      filename: (req, file, cb) => {
-          cb(null, file.fieldname + '_' + Date.now() 
-             + path.extname(file.originalname))
-            // file.fieldname is name of the field (image)
-            // path.extname get the uploaded file extension
-    }
-});
-
-const imageUpload = multer({
-    storage: imageStorage,
-}) 
-
 const userSchema = new mongoose.Schema({
     name : String,
     phone : String,
     email : String,
     job_title : String,
-    password : String,
-    profile_picture : String
+    profile_picture : String,
+    password : String
 })
 
 const userCollection = mongoose.model('users', userSchema)
@@ -54,46 +39,60 @@ module.exports.checkLoginCredential = function(user_email, user_pass, response) 
         if(userData.length == 0)
             response.status(400).send({message : "User not found."})
         else{
-            if(userData[0].password == user_pass) 
-                response.status(200).send(userData[0])
-            else
-                response.status(400).send({message : "Wrong password."}) 
+            // decrypt password
+            bcrypt.compare(user_pass, userData[0].password, function(err, isMatched) {
+                if(err) throw err
+                if(isMatched) 
+                    response.status(200).send(userData[0])
+                else
+                    response.status(400).send({message : "Wrong password."}) 
+            });
         }    
     })
 }
 
+async function compareIt(password, response){
+    const validPassword = await bcrypt.compare(password, hashedPassword);
+}
+
 //Create New User
 module.exports.insertData = function insertData(req, response) {
-    
-    //imageUpload.single('profile_picture')
+   
+    //encrypt Password.........
+    bcrypt.hash(req.body.password, 10, function(hashError, hash) {
+        if (hashError) {
+          throw hashError
+        } else {
+            const doc = new userCollection({
+                name : req.body.name,
+                phone : req.body.phone,
+                email : req.body.email,
+                job_title : req.body.job_title,
+                profile_picture : req.file.path,
+                password : hash
+            })
 
-    const doc = new userCollection({
-        name : req.body.name,
-        phone : req.body.phone,
-        email : req.body.email,
-        job_title : req.body.job_title,
-        password : req.body.password,
-        profile_picture : req.files.profile_picture.name
-    })
-
-    userCollection.find({email : req.body.email},function(err, data) { 
-        if(err) {
-            throw err
-        }
-
-        if(data.length == 0){
-
-            doc.save(function(err, res) {
+            userCollection.find({email : req.body.email},function(err, data) { 
                 if(err) {
                     throw err
                 }
-                response.status(200).send(res)
+        
+                if(data.length == 0){
+        
+                    doc.save(function(err, res) {
+                        if(err) {
+                            throw err
+                        }
+                        response.status(200).send(res)
+                    })
+                }
+                else {
+                    response.status(200).send({message: "User already exists."})
+                }        
             })
+
         }
-        else {
-            response.status(200).send({message: "User already exists."})
-        }        
-    })
+      })    
 }
 
 //Get All Users
@@ -104,6 +103,17 @@ module.exports.getUsers = function(response) {
             throw err
         }
         response.status(200).send({data: users})
+    })
+}
+
+//Get User Profile
+
+module.exports.getUserProfile = function(request, response) {
+    userCollection.find({_id : request.body._id}, function(err, userData) {
+        if(err) {
+            throw err
+        }
+        response.status(200).send(userData[0])
     })
 }
 

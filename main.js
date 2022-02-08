@@ -6,12 +6,12 @@ const req = require('express/lib/request')
 const multer  = require('multer')
 const formData = require('express-form-data');
 const path = require('path')
+const res = require('express/lib/response')
 const app = express()
 const login_success = {message : "Login success."}
 
 app.use(bodyParser.urlencoded({ extended: true }))
 app.use(bodyParser.json())
-app.use(formData.parse())
 
 app.listen(3000, () => {
     console.log("Server listening at http://localhost:3000/")
@@ -36,7 +36,7 @@ app.post("/login", mw.validateLoginCredential(), (req, res) => {
     database.checkLoginCredential(req.body.email, req.body.password,res)
 })
 
-app.post("/add_user", mw.validateAddUserCredential(), (req, res) => {
+app.post("/add_user", imageUpload.single('profile_picture'), mw.validateAddUserCredential(), (req, res) => {
     database.insertData(req, res)
 })
 
@@ -52,6 +52,10 @@ app.patch('/update_user', mw.checkDataForUpdation(), (req, res) => {
     database.updateUser(req.body, res)
 })
 
-app.post('/add_image', imageUpload.single('uploaded_file'), (req, res) => {
+app.post('/add_image', (req, res) => {
     res.send(req.file)
+})
+
+app.get('/get_profile', (req, res) => {
+    database.getUserProfile(req, res)
 })

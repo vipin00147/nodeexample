@@ -9,6 +9,9 @@
   "author": "vipin",
   "license": "MIT",
   "dependencies": {
+    "bcrypt": "^5.0.1",
+    "bcrypt-nodejs": "^0.0.3",
+    "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "express": "^4.17.2",
     "express-form-data": "^2.0.17",
