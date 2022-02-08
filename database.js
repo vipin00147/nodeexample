@@ -3,7 +3,8 @@ const res = require('express/lib/response')
 const bcrypt = require("bcrypt")
 const multer  = require('multer')
 const path = require('path')
-var util = require('util');
+var util = require('util')
+var jwt = require('jsonwebtoken');
 const profile_dest = multer({ dest: './profile_pictures' })
 const mongoose = require('mongoose')
 mongoose.connect('mongodb://localhost:27017/employee',{useMongoClient: true})
@@ -18,7 +19,13 @@ const userSchema = new mongoose.Schema({
     password : String
 })
 
+const tokenSchema = new mongoose.Schema({
+    email : String,
+    token : String
+})
+
 const userCollection = mongoose.model('users', userSchema)
+const tokenCollection = mongoose.model('tokens', tokenSchema)
 
 con.on('open',function() {})
 
@@ -42,17 +49,41 @@ module.exports.checkLoginCredential = function(user_email, user_pass, response) 
             // decrypt password
             bcrypt.compare(user_pass, userData[0].password, function(err, isMatched) {
                 if(err) throw err
-                if(isMatched) 
-                    response.status(200).send(userData[0])
+                if(isMatched) {
+
+                    tokenCollection.find({email : user_email}, function(err,tokenModel) {
+                        if(err) console.log(err.message)
+                        localStorage.removeItem(tokenModel[0]._doc.token)     
+                    })
+
+                    var token = jwt.sign({ foo: 'bar' }, 'loginToken')
+                    localStorage.setItem(token, token)    
+                    let signInData = Object.assign(userData[0]._doc, {token :localStorage.getItem(token) })
+                    tokenCollection.updateOne({email :user_email },{$set : {token : localStorage.getItem(token)}})
+                    
+                    response.status(200).send(signInData)
+
+                    const doc = new tokenCollection({
+                        email : user_email,
+                        token : localStorage.getItem(token)
+                    })
+
+                    tokenCollection.find({email : user_email}, function(err,tokenModel) {
+                        console.log("length : "+tokenModel)
+                        if(tokenModel.length == 0) {
+                            doc.save()
+                        }
+                        else {
+                            tokenCollection.updateOne({email : user_email},{set : {token : localStorage.getItem(token)}})
+                        }
+                    })
+                }
+                    
                 else
                     response.status(400).send({message : "Wrong password."}) 
             });
         }    
     })
-}
-
-async function compareIt(password, response){
-    const validPassword = await bcrypt.compare(password, hashedPassword);
 }
 
 //Create New User

@@ -4,6 +4,7 @@ const mw = require("./middleware")
 const database = require('./database')
 const req = require('express/lib/request')
 const multer  = require('multer')
+var jwt = require('jsonwebtoken');
 const formData = require('express-form-data');
 const path = require('path')
 const res = require('express/lib/response')
@@ -16,6 +17,12 @@ app.use(bodyParser.json())
 app.listen(3000, () => {
     console.log("Server listening at http://localhost:3000/")
 })
+
+if(typeof localStorage === "undefined" || localStorage === null) {
+    var LocalStorage = require('node-localstorage').LocalStorage;
+    localStorage = new LocalStorage('./scratch');
+}
+
 
 const imageStorage = multer.diskStorage({
     // Destination to store image     
@@ -32,11 +39,22 @@ const imageUpload = multer({
     storage: imageStorage,
 }) 
 
+function checkLoginStatus(req, res, next) {
+    try {
+        myToken = localStorage.getItem(req.headers.authorization)
+        jwt.verify(myToken, 'loginToken')
+        next()
+    }
+    catch(exception) {
+        res.status(401).send({message : 'Session expired.'})
+    }  
+}
+
 app.post("/login", mw.validateLoginCredential(), (req, res) => {
     database.checkLoginCredential(req.body.email, req.body.password,res)
 })
 
-app.post("/add_user", imageUpload.single('profile_picture'), mw.validateAddUserCredential(), (req, res) => {
+app.post("/add_user", checkLoginStatus, imageUpload.single('profile_picture'), mw.validateAddUserCredential(), (req, res) => {
     database.insertData(req, res)
 })
 
@@ -58,4 +76,9 @@ app.post('/add_image', (req, res) => {
 
 app.get('/get_profile', (req, res) => {
     database.getUserProfile(req, res)
+})
+
+app.post("/logout", (req, res) => {
+    localStorage.removeItem(req.headers.authorization)
+    res.status(401).send({message : 'Logout successfully.'})
 })
