@@ -23,7 +23,6 @@ if(typeof localStorage === "undefined" || localStorage === null) {
     localStorage = new LocalStorage('./scratch');
 }
 
-
 const imageStorage = multer.diskStorage({
     // Destination to store image     
     destination: './profile_pictures', 

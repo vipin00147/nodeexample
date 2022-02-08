@@ -1,11 +1,7 @@
-const req = require('express/lib/request')
-const res = require('express/lib/response')
 const bcrypt = require("bcrypt")
 const multer  = require('multer')
 const path = require('path')
-var util = require('util')
 var jwt = require('jsonwebtoken');
-const profile_dest = multer({ dest: './profile_pictures' })
 const mongoose = require('mongoose')
 mongoose.connect('mongodb://localhost:27017/employee',{useMongoClient: true})
 const con = mongoose.connection
@@ -53,7 +49,8 @@ module.exports.checkLoginCredential = function(user_email, user_pass, response) 
 
                     tokenCollection.find({email : user_email}, function(err,tokenModel) {
                         if(err) console.log(err.message)
-                        localStorage.removeItem(tokenModel[0]._doc.token)     
+                        if(tokenModel.length != 0)
+                            localStorage.removeItem(tokenModel[0]._doc.token)     
                     })
 
                     var token = jwt.sign({ foo: 'bar' }, 'loginToken')
@@ -69,16 +66,21 @@ module.exports.checkLoginCredential = function(user_email, user_pass, response) 
                     })
 
                     tokenCollection.find({email : user_email}, function(err,tokenModel) {
-                        console.log("length : "+tokenModel)
                         if(tokenModel.length == 0) {
                             doc.save()
                         }
                         else {
-                            tokenCollection.updateOne({email : user_email},{set : {token : localStorage.getItem(token)}})
+                            tokenCollection.updateOne({ email : user_email }, {$set : { token : localStorage.getItem(token)}}, function(err, data) {
+                                tokenCollection.find({email : user_email}, function(err, users) {
+                                    if(err) {
+                                        throw err
+                                    }                                   
+                                })
+                            })
                         }
                     })
                 }
-                    
+                   
                 else
                     response.status(400).send({message : "Wrong password."}) 
             });
