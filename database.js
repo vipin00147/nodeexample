@@ -2,6 +2,7 @@ const bcrypt = require("bcrypt")
 const multer  = require('multer')
 const path = require('path')
 var jwt = require('jsonwebtoken');
+const mailerModule = require('./mailer/mailer');
 const mongoose = require('mongoose')
 mongoose.connect('mongodb://localhost:27017/employee',{useMongoClient: true})
 const con = mongoose.connection
@@ -20,8 +21,15 @@ const tokenSchema = new mongoose.Schema({
     token : String
 })
 
+const otpSchema = new mongoose.Schema({
+    email : String,
+    otp : String
+})
+
+
 const userCollection = mongoose.model('users', userSchema)
 const tokenCollection = mongoose.model('tokens', tokenSchema)
+const otpCollection = mongoose.model('otp', otpSchema)
 
 con.on('open',function() {})
 
@@ -80,7 +88,6 @@ module.exports.checkLoginCredential = function(user_email, user_pass, response) 
                         }
                     })
                 }
-                   
                 else
                     response.status(400).send({message : "Wrong password."}) 
             });
@@ -187,5 +194,74 @@ module.exports.updateUser = function(reqBody, response) {
         else {
             response.status(200).send({message: "Email already exists."})
         }        
+    })
+}
+
+//forgot password reset
+module.exports.forgotPassword = function(req, res) {
+    userCollection.find({email : req.body.email}, function(err, data) {
+        if(err) return res.status(400).send({message: err.message})
+        else {
+            if(data.length != 0) {
+                var random_otp = Math.floor(1000 + Math.random() * 9000)
+
+                const doc = new otpCollection({
+                    email : req.body.email,
+                    token : random_otp
+                })
+
+                otpCollection.find({email : req.body.email}, function(err,otpModel) {
+                    if(otpModel.length == 0) {
+                        doc.save()
+                        mailerModule.sendOtp(req.body.email, random_otp, res) 
+                    }
+                    else {
+                        otpCollection.updateOne({ email : req.body.email }, {$set : { otp : random_otp}}, function(err, data) {
+                            mailerModule.sendOtp(req.body.email, random_otp, res)
+                        })
+                    }
+                })
+            }
+            else {
+                res.status(404).send({message: 'User does not exist.'})
+            }
+        }
+    })
+}
+
+//verify OTP
+module.exports.verifyOtp = function (req, res) {
+    otpCollection.find({email : req.body.email}, function(err, otpModel) {
+        if(!err) {
+            if(otpModel[0]._doc.otp === req.body.otp) {
+                res.status(200).send({message : "Verified Success."})
+            }
+            else {
+                res.status(400).send({message : "Invalid OTP."})
+            }
+        }
+    })
+}
+
+//change password
+module.exports.changePassword = function(req, res) {
+    userCollection.find({email : req.body.email}, function(err, userData) {
+        if(err) console.log(err)
+        if(userData.length != 0) {
+            if(req.body.password.length < 8)
+                res.status(406).send({message: 'Password length must be between 8 and 15'})
+            else if(req.body.password != req.body.conf_password)
+                res.status(406).send({message: 'Confirm password should be same as password'})
+            else {
+                bcrypt.hash(req.body.password, 10, function(hashError, hash) {
+                    userCollection.updateOne({ email : req.body.email }, {$set : { password : hash}}, function(err, data) {
+                        res.status(200).send({message: 'Password Changed Successfully.'})
+                    })
+                })
+            }
+        }
+        else {
+            res.status(404).send({message: 'User does not exist.'})
+        }
     })
 }

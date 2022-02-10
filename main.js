@@ -2,12 +2,9 @@ const express = require('express')
 const bodyParser = require('body-parser')
 const mw = require("./middleware")
 const database = require('./database')
-const req = require('express/lib/request')
 const multer  = require('multer')
 var jwt = require('jsonwebtoken');
-const formData = require('express-form-data');
 const path = require('path')
-const res = require('express/lib/response')
 const app = express()
 const login_success = {message : "Login success."}
 
@@ -57,15 +54,15 @@ app.post("/add_user", checkLoginStatus, imageUpload.single('profile_picture'), m
     database.insertData(req, res)
 })
 
-app.get('/get_users', (req, res) => {
+app.get('/get_users', checkLoginStatus, (req, res) => {
     database.getUsers(res)
 })
 
-app.delete('/delete_user', (req, res) => {
+app.delete('/delete_user', checkLoginStatus, (req, res) => {
    database.deleteUsers(req.body.user_id, res)
 })
 
-app.patch('/update_user', mw.checkDataForUpdation(), (req, res) => {
+app.patch('/update_user', checkLoginStatus, mw.checkDataForUpdation(), (req, res) => {
     database.updateUser(req.body, res)
 })
 
@@ -73,11 +70,23 @@ app.post('/add_image', (req, res) => {
     res.send(req.file)
 })
 
-app.get('/get_profile', (req, res) => {
+app.get('/get_profile', checkLoginStatus, (req, res) => {
     database.getUserProfile(req, res)
 })
 
 app.post("/logout", (req, res) => {
     localStorage.removeItem(req.headers.authorization)
     res.status(401).send({message : 'Logout successfully.'})
+})
+
+app.post('/forgot_password', (req, res)=> {
+    database.forgotPassword(req, res)
+})
+
+app.post('/verify_otp', (req, res) => {
+    database.verifyOtp(req, res)
+})
+
+app.post('/change_password', (req, res) => {
+    database.changePassword(req, res)
 })
