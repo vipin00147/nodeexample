@@ -3,49 +3,13 @@ const multer  = require('multer')
 const path = require('path')
 var jwt = require('jsonwebtoken');
 const mailerModule = require('./mailer/mailer');
-const mongoose = require('mongoose')
-mongoose.connect('mongodb://localhost:27017/employee',{useMongoClient: true})
-const con = mongoose.connection
+const { userCollection, tokenCollection, otpCollection, orderCollection, attachmentCollection, commentCollection, orderHistoryCollection } = require("./models/models");
+const { Console } = require("console");
 
-const userSchema = new mongoose.Schema({
-    name : String,
-    phone : String,
-    email : String,
-    job_title : String,
-    profile_picture : String,
-    password : String
-})
-
-const tokenSchema = new mongoose.Schema({
-    email : String,
-    token : String
-})
-
-const otpSchema = new mongoose.Schema({
-    email : String,
-    otp : String
-})
-
-
-const userCollection = mongoose.model('users', userSchema)
-const tokenCollection = mongoose.model('tokens', tokenSchema)
-const otpCollection = mongoose.model('otp', otpSchema)
-
-con.on('open',function() {})
-
-con.on('connected',function() {
-    console.log("DB connected....")
-})
-
-con.on('disconnected',function() {
-    console.log("DB Disconnected....")
-})
-
-con.on('error', console.error.bind(console, 'connection error : '))
 
 //check login credential
 module.exports.checkLoginCredential = function(user_email, user_pass, response) {
-    userCollection.find({email : user_email}, function(err, userData) {
+    userCollection.find({email : user_email},{__v : 0}, function(err, userData) {
 
         if(userData.length == 0)
             response.status(400).send({message : "User not found."})
@@ -69,6 +33,7 @@ module.exports.checkLoginCredential = function(user_email, user_pass, response) 
                     response.status(200).send(signInData)
 
                     const doc = new tokenCollection({
+                        _id : userData[0]._id,
                         email : user_email,
                         token : localStorage.getItem(token)
                     })
@@ -138,7 +103,7 @@ module.exports.insertData = function insertData(req, response) {
 //Get All Users
 module.exports.getUsers = function(response) {
 
-    userCollection.find({}, function(err, users) {
+    userCollection.find({},{__v : 0}, function(err, users) {
         if(err) {
             throw err
         }
@@ -207,7 +172,7 @@ module.exports.forgotPassword = function(req, res) {
 
                 const doc = new otpCollection({
                     email : req.body.email,
-                    token : random_otp
+                    otp : random_otp
                 })
 
                 otpCollection.find({email : req.body.email}, function(err,otpModel) {
@@ -264,4 +229,117 @@ module.exports.changePassword = function(req, res) {
             res.status(404).send({message: 'User does not exist.'})
         }
     })
+}
+
+//create new order
+module.exports.createNewOrder = function(req, res) {
+
+    const doc = new orderCollection({
+        job_title : req.body.job_title,
+        customer_name : req.body.customer_name,
+        phone_number : req.body.phone_number,
+        description : req.body.description,
+        status : req.body.status,
+        created_by : {},
+        attachments : [],
+        comments : [],
+        order_history : [],
+        created_at : new Date().toLocaleString('en-US')
+    })
+
+    tokenCollection.find({token : req.headers.authorization}, function(err, tokenData) {
+        userCollection.find({_id : tokenData[0]._id},{_id : 1, name : 1, phone : 1, profile_picture : 1}, function(err, userData) {
+            doc.created_by = userData[0]
+            doc.save(function(err, savedResponse) {
+                if(err) 
+                    res.status(400).send({message : err.message})
+                else
+                    orderCollection.find({_id : savedResponse._id},{__v : 0}, function(err, orderData) {
+                        res.status(200).send(orderData[0])
+                    })
+            })
+        })
+    })   
+}
+
+//upload attachment
+module.exports.uploadAttachment = async function(req, res) {
+
+    await updateOrderHistory(req, res, "attachment")
+    
+    console.log("Order Collection")
+
+    const attach_doc = new attachmentCollection({
+        attachment : req.file.path
+    })
+    
+    attach_doc.save(function(err, attach_res) {
+        if(err) res.status(400).send({message : err.message})
+        else {
+            orderCollection.updateOne({_id : req.body.order_id}, {$push: { attachments : attach_res }}, function(err,update_data) {
+                orderCollection.find({_id : req.body.order_id}, function(err, orderData) {
+                    res.status(200).send({data : orderData[0]})
+                })
+            })
+        }
+    })
+}
+
+// upload comments
+module.exports.uploadComment = async function(req, res) {
+
+    const comment_doc = new commentCollection({
+        msg : req.body.msg,
+        commented_by : {},
+        commented_at : new Date().toLocaleString('en-US')
+    })
+
+    tokenCollection.find({token : req.headers.authorization}, function(err, tokenData) {
+        userCollection.find({_id : tokenData[0]._id},{_id : 1, name : 1, phone : 1, profile_picture : 1}, function(err, userData) {
+            comment_doc.commented_by = userData
+
+            comment_doc.save(function(err, comment_res) {
+                if(err) res.status(400).send({message : err.message})
+                else {
+                    orderCollection.updateOne({_id : req.body.order_id}, {$push: { comments : comment_res }}, function(err,update_data) {
+                        orderCollection.find({_id : req.body.order_id}, function(err, orderData) {
+                            if(err) 
+                                res.status(400).send(err.message)
+                            else
+                                res.status(200).send({data : orderData[0]})
+                        })
+                    })
+                }
+            })
+        })
+    })   
+}
+
+function updateOrderHistory(req, res, type) {
+
+    const doc = new orderHistoryCollection({
+        order_history_msg : ""
+    })
+
+    tokenCollection.find({token : req.headers.authorization}, function(err, tokenData) {
+        userCollection.find({_id : tokenData[0]._id}, function(err, userData) {
+            orderCollection.find({_id : req.body.order_id}, function(err, orderData){
+
+                if(type === 'attachment') 
+                    doc.order_history_msg = "Attachment added "+orderData[0].job_title+" on "+(new Date().toLocaleString('en-US'))+" by "+userData[0].name
+                else if(type === 'updated')
+                    doc.order_history_msg = "Order updated "+orderData[0].job_title+" on "+(new Date().toLocaleString('en-US'))+" by "+userData[0].name
+                
+                doc.save(function(err, data) {
+                    orderCollection.updateOne({_id : req.body.order_id}, {$push: { order_history : data }}, function(err, data){
+                        console.log("order history is updated successfully.")
+                    })
+                })
+            })
+        })
+    })
+}
+
+module.exports.getRowData = function(req, res) {
+    res.status(200).send(req.body)
 }

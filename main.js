@@ -31,9 +31,24 @@ const imageStorage = multer.diskStorage({
     }
 });
 
+const attachmentsStorage = multer.diskStorage({
+    // Destination to store image     
+    destination: './attachments', 
+      filename: (req, file, cb) => {
+          cb(null, file.fieldname + '_' + Date.now() 
+             + path.extname(file.originalname))
+            // file.fieldname is name of the field (image)
+            // path.extname get the uploaded file extension
+    }
+});
+
 const imageUpload = multer({
     storage: imageStorage,
 }) 
+
+const attachment_upload = multer({
+    storage: attachmentsStorage
+})
 
 function checkLoginStatus(req, res, next) {
     try {
@@ -89,4 +104,20 @@ app.post('/verify_otp', (req, res) => {
 
 app.post('/change_password', (req, res) => {
     database.changePassword(req, res)
+})
+
+app.post('/create_new_order', checkLoginStatus, (req, res) => {
+    database.createNewOrder(req, res)
+})
+
+app.post('/upload_attachment', checkLoginStatus, attachment_upload.single('attachment'), (req, res) => {
+    database.uploadAttachment(req, res)
+})
+
+app.post('/upload_comment', checkLoginStatus, (req, res) => {
+    database.uploadComment(req, res)
+})
+
+app.post("/set_data", (req, res) => {
+    database.getRowData(req, res)
 })
