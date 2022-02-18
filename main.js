@@ -110,6 +110,10 @@ app.post('/create_new_order', checkLoginStatus, (req, res) => {
     database.createNewOrder(req, res)
 })
 
+app.post('/create_new_delivery', checkLoginStatus, (req, res) => {
+    database.createNewDelivery(req, res)
+})
+
 app.post('/upload_attachment', checkLoginStatus, attachment_upload.single('attachment'), (req, res) => {
     database.uploadAttachment(req, res)
 })
@@ -118,6 +122,22 @@ app.post('/upload_comment', checkLoginStatus, (req, res) => {
     database.uploadComment(req, res)
 })
 
-app.post("/set_data", (req, res) => {
-    database.getRowData(req, res)
+app.patch('/update_order', checkLoginStatus, (req, res) => {
+    database.updateOrder(req, res)
+})
+
+app.delete('/remove_attachment', checkLoginStatus, (req, res) => {
+    database.removeAttachment(req, res)
+})
+
+app.delete('/delete_comment', checkLoginStatus, (req, res) => {
+    database.removeComment(req, res)
+})
+
+app.get('/get_all_jobs', checkLoginStatus, (req, res) => {
+    database.getAllJobs(req, res)
+})
+
+app.get('/get_job_detail', checkLoginStatus, (req, res) => {
+    database.getJobDetail(req, res)
 })

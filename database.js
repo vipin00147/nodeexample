@@ -3,7 +3,7 @@ const multer  = require('multer')
 const path = require('path')
 var jwt = require('jsonwebtoken');
 const mailerModule = require('./mailer/mailer');
-const { userCollection, tokenCollection, otpCollection, orderCollection, attachmentCollection, commentCollection, orderHistoryCollection } = require("./models/models");
+const { userCollection, tokenCollection, otpCollection, orderCollection, attachmentCollection, commentCollection, orderHistoryCollection, deliveryCollection } = require("./models/models");
 const { Console } = require("console");
 
 
@@ -103,7 +103,7 @@ module.exports.insertData = function insertData(req, response) {
 //Get All Users
 module.exports.getUsers = function(response) {
 
-    userCollection.find({},{__v : 0}, function(err, users) {
+    userCollection.find({},{__v : 0, password : 0}, function(err, users) {
         if(err) {
             throw err
         }
@@ -240,47 +240,111 @@ module.exports.createNewOrder = function(req, res) {
         phone_number : req.body.phone_number,
         description : req.body.description,
         status : req.body.status,
-        created_by : {},
-        attachments : [],
-        comments : [],
-        order_history : [],
+        created_by : null,
         created_at : new Date().toLocaleString('en-US')
     })
 
-    tokenCollection.find({token : req.headers.authorization}, function(err, tokenData) {
-        userCollection.find({_id : tokenData[0]._id},{_id : 1, name : 1, phone : 1, profile_picture : 1}, function(err, userData) {
+    tokenCollection.find({token : req.headers.authorization},function(err, tokenData) {
+        userCollection.find({_id : tokenData[0]._id},{_id : 1, name : 1, phone : 1, profile_picture : 1},function(err, userData) {
             doc.created_by = userData[0]
-            doc.save(function(err, savedResponse) {
+            doc.save(async function(err, savedResponse) {
                 if(err) 
                     res.status(400).send({message : err.message})
-                else
-                    orderCollection.find({_id : savedResponse._id},{__v : 0}, function(err, orderData) {
-                        res.status(200).send(orderData[0])
+                else {
+                    await orderCollection.find({_id : savedResponse._id},{__v : 0},async function(err, orderData) {
+                        jobData = orderData[0]
                     })
+                    await orderHistoryCollection.find({job_id : savedResponse._id}, {__v : 0},async function(err, orderHistoryData) {
+                        orderHistory = orderHistoryData 
+                    })
+                    await attachmentCollection.find({job_id : savedResponse._id}, {__v : 0},async function(err, attachmentData) {
+                        attachments = attachmentData
+                    })
+                    await commentCollection.find({job_id : savedResponse._id}, {__v : 0},async function(err, commentData) {
+                        comments = commentData
+                    })
+                
+                    let responseData = {jobData, orderHistory, attachments, comments}
+                    
+                    res.send(responseData)
+                }
             })
         })
     })   
 }
 
+//create new delivery
+module.exports.createNewDelivery = async function(req, res) {
+
+    const doc = await new deliveryCollection({
+        job_title : req.body.job_title,
+        customer_name : req.body.customer_name,
+        phone_number : req.body.phone_number,
+        delivery_address : req.body.delivery_address,
+        delivery_date : req.body.delivery_date,
+        delivery_time : req.body.delivery_time,
+        description : req.body.description,
+        driver_name : req.body.driver_name,
+        driver_phone : req.body.driver_phone,
+        status : req.body.status,
+        created_by : null,
+        driver : null,
+        attachments : [],
+        delivery_history : [],
+        comments : [],
+        created_at : new Date().toLocaleString('en-US')
+    })
+
+
+    tokenCollection.find({token : req.headers.authorization}, function(err, tokenData) {
+        userCollection.find({_id : tokenData[0]._id},{_id : 1, name : 1, phone : 1, profile_picture : 1}, function(err, userData) {
+            doc.created_by = userData[0]
+
+            userCollection.find({_id : req.body.driver_id}, {_id : 1, name : 1, phone : 1, profile_picture : 1}, function(err, driverData) {
+                if(err) console.log(err.message)
+                else if(driverData.length != 0) {
+                    doc.driver = driverData[0]  
+                }
+                              
+                doc.save(function(err, savedResponse) {
+                    if(err) 
+                        res.status(400).send({message : err.message})
+                    else
+                        deliveryCollection.find({_id : savedResponse._id},{__v : 0}, function(err, deliveryData) {
+                        res.status(200).send(deliveryData[0])
+                    })
+                })
+            })
+        })
+    })
+}
+
 //upload attachment
 module.exports.uploadAttachment = async function(req, res) {
 
-    await updateOrderHistory(req, res, "attachment")
-    
-    console.log("Order Collection")
+    //add order history
 
     const attach_doc = new attachmentCollection({
+        job_id : req.body.job_id,
         attachment : req.file.path
     })
     
+    
+    if(req.body.order_id != '') {
+        await updateJobHistory(req, res, "attachment", true)        //update job history.
+        attach_doc.job_id = req.body.order_id
+    }
+    else {
+        await updateJobHistory(req, res, "attachment", false)       //update job history.
+        attach_doc.job_id = req.body.delivery_id
+    }
+
+
+    //add attachment
     attach_doc.save(function(err, attach_res) {
         if(err) res.status(400).send({message : err.message})
         else {
-            orderCollection.updateOne({_id : req.body.order_id}, {$push: { attachments : attach_res }}, function(err,update_data) {
-                orderCollection.find({_id : req.body.order_id}, function(err, orderData) {
-                    res.status(200).send({data : orderData[0]})
-                })
-            })
+            res.status(200).send(attach_res)
         }
     })
 }
@@ -289,6 +353,7 @@ module.exports.uploadAttachment = async function(req, res) {
 module.exports.uploadComment = async function(req, res) {
 
     const comment_doc = new commentCollection({
+        job_id : req.body.job_id,
         msg : req.body.msg,
         commented_by : {},
         commented_at : new Date().toLocaleString('en-US')
@@ -301,45 +366,186 @@ module.exports.uploadComment = async function(req, res) {
             comment_doc.save(function(err, comment_res) {
                 if(err) res.status(400).send({message : err.message})
                 else {
-                    orderCollection.updateOne({_id : req.body.order_id}, {$push: { comments : comment_res }}, function(err,update_data) {
-                        orderCollection.find({_id : req.body.order_id}, function(err, orderData) {
-                            if(err) 
-                                res.status(400).send(err.message)
-                            else
-                                res.status(200).send({data : orderData[0]})
-                        })
-                    })
+                    res.status(200).send(comment_res)
                 }
             })
         })
     })   
 }
 
-function updateOrderHistory(req, res, type) {
+async function updateJobHistory(req, res, type, isOrder) {
 
     const doc = new orderHistoryCollection({
+        job_id : "",
         order_history_msg : ""
     })
 
-    tokenCollection.find({token : req.headers.authorization}, function(err, tokenData) {
-        userCollection.find({_id : tokenData[0]._id}, function(err, userData) {
-            orderCollection.find({_id : req.body.order_id}, function(err, orderData){
+    await tokenCollection.find({token : req.headers.authorization}, async function(err, tokenData) {
+        await userCollection.find({_id : tokenData[0]._id}, async function(err, userData) {
 
-                if(type === 'attachment') 
-                    doc.order_history_msg = "Attachment added "+orderData[0].job_title+" on "+(new Date().toLocaleString('en-US'))+" by "+userData[0].name
-                else if(type === 'updated')
-                    doc.order_history_msg = "Order updated "+orderData[0].job_title+" on "+(new Date().toLocaleString('en-US'))+" by "+userData[0].name
-                
-                doc.save(function(err, data) {
-                    orderCollection.updateOne({_id : req.body.order_id}, {$push: { order_history : data }}, function(err, data){
-                        console.log("order history is updated successfully.")
-                    })
+            if(isOrder) {
+                doc.job_id = req.body.order_id
+                await orderCollection.find({_id : req.body.order_id}, async function(err, orderData){
+                    if(type === 'attachment') 
+                        doc.order_history_msg = "Attachment added "+orderData[0].job_title+" on "+(new Date().toLocaleString('en-US'))+" by "+userData[0].name
+                    else if(type === 'updated')
+                        doc.order_history_msg = "Order updated "+orderData[0].job_title+" on "+(new Date().toLocaleString('en-US'))+" by "+userData[0].name
+                    else if(type === 'attachmentRemoved')
+                        doc.order_history_msg = "Attachment removed "+orderData[0].job_title+" on "+(new Date().toLocaleString('en-US'))+" by "+userData[0].name
+                    doc.save(async function(err, data) {})
                 })
-            })
+            }
+            else {
+                doc.job_id = req.body.delivery_id
+                await deliveryCollection.find({_id : req.body.delivery_id}, async function(err, deliveryData){
+
+                    if(type === 'attachment') 
+                        doc.order_history_msg = "Attachment added "+deliveryData[0].job_title+" on "+(new Date().toLocaleString('en-US'))+" by "+userData[0].name
+                    else if(type === 'updated')
+                        doc.order_history_msg = "Order updated "+deliveryData[0].job_title+" on "+(new Date().toLocaleString('en-US'))+" by "+userData[0].name
+                    else if(type === 'attachmentRemoved')
+                        doc.order_history_msg = "Attachment removed "+deliveryData[0].job_title+" on "+(new Date().toLocaleString('en-US'))+" by "+userData[0].name
+                    doc.save(async function(err, data) {})
+                })
+            }            
         })
     })
 }
 
-module.exports.getRowData = function(req, res) {
-    res.status(200).send(req.body)
+// update order
+module.exports.updateOrder = async function(req, res) { 
+
+    var comments, orderHistory, attachments, jobData
+    await updateJobHistory(req, res, "updated", true)
+
+    orderCollection.updateOne({_id : req.body.order_id}, {$set : {
+        job_title : req.body.job_title,
+        description : req.body.description,
+        customer_name : req.body.customer_name,
+        phone_number : req.body.phone_number,
+    }
+}, async function(err, data) {
+    if(err)
+        res.status(400).send({message : err.message})
+    else{
+
+        await orderCollection.find({_id : req.body.order_id},{__v : 0},async function(err, orderData) {
+            jobData = orderData[0]
+        })
+        await orderHistoryCollection.find({job_id : req.body.order_id}, {__v : 0, job_id : 0},async function(err, orderHistoryData) {
+            orderHistory = orderHistoryData 
+        })
+        await attachmentCollection.find({job_id : req.body.order_id}, {__v : 0, job_id : 0},async function(err, attachmentData) {
+            attachments = attachmentData
+        })
+        await commentCollection.find({job_id : req.body.order_id}, {__v : 0, job_id : 0},async function(err, commentData) {
+            comments = commentData
+        })
+    
+        let responseData = {jobData, orderHistory, attachments, comments}
+        
+        res.send(responseData)
+        }
+    })
+}
+
+//remove attachment
+module.exports.removeAttachment =async function(req, res) {
+    // remove attachment from order
+
+    await updateJobHistory(req, res, "attachmentRemoved", true)
+
+    attachmentCollection.findByIdAndRemove(req.body.attachment_id, function(err, success){
+        if(err)
+            res.status(400).send({message : err.message})
+        else{
+            if(req.body.order_id != '') {
+                attachmentCollection.find({job_id : req.body.order_id}, {__v : 0, job_id : 0}, function(err, attachments) {
+                    res.status(200).send({attachments : attachments})
+                })
+            }
+            else {
+                attachmentCollection.find({job_id : req.body.delivery_id}, {__v : 0, job_id : 0}, function(err, attachments) {
+                    res.status(200).send({attachments : attachments})
+                })
+            }
+            
+        }
+            
+    })
+}
+
+//remove comment 
+module.exports.removeComment = async function(req, res) {
+    
+    commentCollection.findByIdAndRemove(req.body.comment_id, function(err, success){
+        if(err)
+            res.status(400).send({message : err.message})
+        else{
+            if(req.body.order_id != '') {
+                commentCollection.find({job_id : req.body.order_id}, {__v : 0, job_id : 0}, function(err, comments) {
+                    res.status(200).send({comments : comments})
+                })
+            }
+            else {
+                commentCollection.find({job_id : req.body.delivery_id}, {__v : 0, job_id : 0}, function(err, comments) {
+                    res.status(200).send({comments : comments})
+                })
+            }
+        }   
+    })
+}
+
+//get all jobs 
+module.exports.getAllJobs = async function(req, res) {
+    if(req.body.is_order) {
+        orderCollection.find({}, {__v : 0}, function(err, allOrders) {
+            if(err) 
+                res.status(400).send({message : err.message})
+            else
+                res.status(200).send({data : allOrders})
+        })
+    }
+    else {
+        deliveryCollection.find({}, {__v : 0}, function(err, allOrders) {
+            if(err) 
+                res.status(400).send({message : err.message})
+            else
+                res.status(200).send({data : allOrders})
+        })
+    }
+}
+
+// get job detail
+module.exports.getJobDetail = async function(req, res) {
+    var comments, orderHistory, attachments, jobData
+
+    if(req.body.isOrder) {
+        orderCollection.find({_id : req.body.job_id}, {__v : 0}, function(err, data) {
+            jobData = data[0]
+        })
+    }
+    else {
+        deliveryCollection.find({_id : req.body.job_id}, {__v : 0}, function(err, data) {
+            jobData = data[0]
+        })
+    }
+
+    await orderHistoryCollection.find({job_id : req.body.job_id}, {__v : 0, job_id : 0},function(err, orderHistoryData) {
+        orderHistory = orderHistoryData 
+    })
+    await attachmentCollection.find({job_id : req.body.job_id}, {__v : 0, job_id : 0}, function(err, attachmentData) {
+        attachments = attachmentData
+    })
+    await commentCollection.find({job_id : req.body.job_id}, {__v : 0, job_id : 0}, function(err, commentData) {
+        comments = commentData
+    })
+
+    if(jobData != undefined) {
+        let responseData = {jobData, orderHistory, attachments, comments}
+        res.send(responseData)
+    }
+    else {
+        res.status(404).send({data : {}})
+    }  
 }

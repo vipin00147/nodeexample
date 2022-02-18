@@ -22,6 +22,23 @@ const otpSchema = new mongoose.Schema({
     otp : String
 })
 
+const attachmentSchema = new mongoose.Schema({
+    job_id : String,
+    attachment : String
+})
+
+const commentSchema = new mongoose.Schema({
+    job_id : String,
+    msg : String,
+    commented_by : {},
+    commented_at : String
+})
+
+const orderHistorySchema = new mongoose.Schema({
+    job_id : String,
+    order_history_msg : String,
+})
+
 const orderSchema = new mongoose.Schema({
     job_title : { type: String, required : true },
     customer_name : { type: String, required : true },
@@ -29,30 +46,34 @@ const orderSchema = new mongoose.Schema({
     description : String,
     status : { type: String, required : true },
     created_by : {},
+    created_at : String
+})
+
+const deliverySchema = new mongoose.Schema({
+    job_title : { type: String, required : true },
+    customer_name : { type: String, required : true },
+    phone_number : String,
+    delivery_address : String,
+    delivery_date : String,
+    delivery_time : String,
+    description : String,
+    driver : {},
+    driver_name : String,
+    driver_phone : String,
+    status : { type: String, required : true },
+    created_by : {},
     attachments : [],
-    order_history : [],
+    delivery_history : [],
     comments : [],
     created_at : String
 })
 
-const attachmentSchema = new mongoose.Schema({
-    attachment : String
-})
-
-const commentSchema = new mongoose.Schema({
-    msg : String,
-    commented_by : {},
-    commented_at : String
-})
-
-const orderHistorySchema = new mongoose.Schema({
-    order_history_msg : String,
-})
 
 const userCollection = mongoose.model('users', userSchema)
 const tokenCollection = mongoose.model('tokens', tokenSchema)
 const otpCollection = mongoose.model('otp', otpSchema)
 const orderCollection = mongoose.model('orders', orderSchema)
+const deliveryCollection = mongoose.model('delivery', deliverySchema)
 const attachmentCollection = mongoose.model('attachments', attachmentSchema)
 const commentCollection = mongoose.model('comments', commentSchema)
 const orderHistoryCollection = mongoose.model('order_history', orderHistorySchema)
@@ -69,4 +90,5 @@ con.on('disconnected',function() {
 
 con.on('error', console.error.bind(console, 'connection error : '))
 
-module.exports = {userCollection, tokenCollection, otpCollection, orderCollection, attachmentCollection, commentCollection, orderHistoryCollection}
+module.exports = {userCollection, tokenCollection, otpCollection, orderCollection, attachmentCollection,
+     commentCollection, orderHistoryCollection, deliveryCollection}
