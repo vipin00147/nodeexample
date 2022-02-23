@@ -16,6 +16,7 @@
     "express": "^4.17.2",
     "express-form-data": "^2.0.17",
     "express-formidable": "^1.2.0",
+    "firebase-admin": "^10.0.2",
     "formidable": "^2.0.1",
     "jsonwebtoken": "^8.5.1",
     "mongoose": "^4.13.21",

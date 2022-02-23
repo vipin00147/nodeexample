@@ -141,3 +141,7 @@ app.get('/get_all_jobs', checkLoginStatus, (req, res) => {
 app.get('/get_job_detail', checkLoginStatus, (req, res) => {
     database.getJobDetail(req, res)
 })
+
+app.post('/send_push_notification', (req, res) => {
+    database.sendPushNotification(req, res)
+})

@@ -4,7 +4,15 @@ const path = require('path')
 var jwt = require('jsonwebtoken');
 const mailerModule = require('./mailer/mailer');
 const { userCollection, tokenCollection, otpCollection, orderCollection, attachmentCollection, commentCollection, orderHistoryCollection, deliveryCollection } = require("./models/models");
-const { Console } = require("console");
+const { Console, clear } = require("console");
+const { initializeApp } = require('firebase-admin/app');
+var admin = require("firebase-admin");
+var serviceAccount = require("./firebase/service_key.json");
+
+admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+    databaseURL: "https://notificationdemo-924b3-default-rtdb.firebaseio.com"
+});
 
 
 //check login credential
@@ -241,7 +249,7 @@ module.exports.createNewOrder = function(req, res) {
         description : req.body.description,
         status : req.body.status,
         created_by : null,
-        created_at : new Date().toLocaleString('en-US')
+        created_at : new Date().toISOString()
     })
 
     tokenCollection.find({token : req.headers.authorization},function(err, tokenData) {
@@ -289,10 +297,7 @@ module.exports.createNewDelivery = async function(req, res) {
         status : req.body.status,
         created_by : null,
         driver : null,
-        attachments : [],
-        delivery_history : [],
-        comments : [],
-        created_at : new Date().toLocaleString('en-US')
+        created_at : new Date().toISOString()
     })
 
 
@@ -548,4 +553,29 @@ module.exports.getJobDetail = async function(req, res) {
     else {
         res.status(404).send({data : {}})
     }  
+}
+
+// send push notification
+module.exports.sendPushNotification = function(req, res) {
+    
+    const firebaseToken = req.body.registrationToken
+  
+    const payload = {
+        data: {
+            title: 'Node.js Notification Example.',
+            message: 'Here is the demo notification.',
+        }
+    }
+      
+    const options = {
+        priority: 'high',
+        timeToLive: 60 * 60 * 24,
+    }
+        
+    admin.messaging().sendToDevice(firebaseToken, payload, options).then( response => {
+        res.status(200).send({message : "Notification sent successfully."})
+    })
+    .catch( error => {
+         res.send({message : error.message})
+    })
 }
