@@ -4,8 +4,7 @@ const path = require('path')
 var jwt = require('jsonwebtoken');
 const mailerModule = require('./mailer/mailer');
 const { userCollection, tokenCollection, otpCollection, orderCollection, attachmentCollection, commentCollection, orderHistoryCollection, deliveryCollection } = require("./models/models");
-const { Console, clear } = require("console");
-const { initializeApp } = require('firebase-admin/app');
+
 var admin = require("firebase-admin");
 var serviceAccount = require("./firebase/service_key.json");
 
@@ -103,7 +102,6 @@ module.exports.insertData = function insertData(req, response) {
                     response.status(200).send({message: "User already exists."})
                 }        
             })
-
         }
       })    
 }
@@ -361,7 +359,7 @@ module.exports.uploadComment = async function(req, res) {
         job_id : req.body.job_id,
         msg : req.body.msg,
         commented_by : {},
-        commented_at : new Date().toLocaleString('en-US')
+        commented_at : new Date().toISOString
     })
 
     tokenCollection.find({token : req.headers.authorization}, function(err, tokenData) {
@@ -392,11 +390,11 @@ async function updateJobHistory(req, res, type, isOrder) {
                 doc.job_id = req.body.order_id
                 await orderCollection.find({_id : req.body.order_id}, async function(err, orderData){
                     if(type === 'attachment') 
-                        doc.order_history_msg = "Attachment added "+orderData[0].job_title+" on "+(new Date().toLocaleString('en-US'))+" by "+userData[0].name
+                        doc.order_history_msg = "Attachment added "+orderData[0].job_title+" on "+(new Date().toISOString())+" by "+userData[0].name
                     else if(type === 'updated')
-                        doc.order_history_msg = "Order updated "+orderData[0].job_title+" on "+(new Date().toLocaleString('en-US'))+" by "+userData[0].name
+                        doc.order_history_msg = "Order updated "+orderData[0].job_title+" on "+(new Date().toISOString())+" by "+userData[0].name
                     else if(type === 'attachmentRemoved')
-                        doc.order_history_msg = "Attachment removed "+orderData[0].job_title+" on "+(new Date().toLocaleString('en-US'))+" by "+userData[0].name
+                        doc.order_history_msg = "Attachment removed "+orderData[0].job_title+" on "+(new Date().toISOString())+" by "+userData[0].name
                     doc.save(async function(err, data) {})
                 })
             }
@@ -405,11 +403,11 @@ async function updateJobHistory(req, res, type, isOrder) {
                 await deliveryCollection.find({_id : req.body.delivery_id}, async function(err, deliveryData){
 
                     if(type === 'attachment') 
-                        doc.order_history_msg = "Attachment added "+deliveryData[0].job_title+" on "+(new Date().toLocaleString('en-US'))+" by "+userData[0].name
+                        doc.order_history_msg = "Attachment added "+deliveryData[0].job_title+" on "+(new Date().toISOString())+" by "+userData[0].name
                     else if(type === 'updated')
-                        doc.order_history_msg = "Order updated "+deliveryData[0].job_title+" on "+(new Date().toLocaleString('en-US'))+" by "+userData[0].name
+                        doc.order_history_msg = "Order updated "+deliveryData[0].job_title+" on "+(new Date().toISOString())+" by "+userData[0].name
                     else if(type === 'attachmentRemoved')
-                        doc.order_history_msg = "Attachment removed "+deliveryData[0].job_title+" on "+(new Date().toLocaleString('en-US'))+" by "+userData[0].name
+                        doc.order_history_msg = "Attachment removed "+deliveryData[0].job_title+" on "+(new Date().toISOString())+" by "+userData[0].name
                     doc.save(async function(err, data) {})
                 })
             }            
@@ -474,9 +472,7 @@ module.exports.removeAttachment =async function(req, res) {
                     res.status(200).send({attachments : attachments})
                 })
             }
-            
-        }
-            
+        }    
     })
 }
 
@@ -504,7 +500,7 @@ module.exports.removeComment = async function(req, res) {
 //get all jobs 
 module.exports.getAllJobs = async function(req, res) {
     if(req.body.is_order) {
-        orderCollection.find({}, {__v : 0}, function(err, allOrders) {
+        orderCollection.find({}, { __v : 0}, function(err, allOrders) {
             if(err) 
                 res.status(400).send({message : err.message})
             else
@@ -512,7 +508,7 @@ module.exports.getAllJobs = async function(req, res) {
         })
     }
     else {
-        deliveryCollection.find({}, {__v : 0}, function(err, allOrders) {
+        deliveryCollection.find({}, { __v : 0}, function(err, allOrders) {
             if(err) 
                 res.status(400).send({message : err.message})
             else
@@ -573,7 +569,7 @@ module.exports.sendPushNotification = function(req, res) {
     }
         
     admin.messaging().sendToDevice(firebaseToken, payload, options).then( response => {
-        res.status(200).send({message : "Notification sent successfully."})
+        res.status(200).send({message : "Notification sent."})
     })
     .catch( error => {
          res.send({message : error.message})
